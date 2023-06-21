@@ -1,0 +1,277 @@
+import { useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Loader2 } from "lucide-react";
+import axios from 'axios';
+import { useRouter } from 'next/navigation';
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { SparklesIcon } from "@heroicons/react/24/outline";
+import {
+  MinusCircle,
+  PlusCircle,
+
+} from "lucide-react";
+import { Label } from "@/components/ui/label";
+import Select from "react-select";
+import {
+  useSupabaseQuery,
+  useSupabaseMutation,
+} from "@/hooks/useSupabaseQuery";
+import { useAuth } from "@clerk/nextjs";
+import { QueryClient, useMutation, useQueryClient } from "react-query";
+
+
+
+function GenerateCharacterButton({ entities, params, nextRoute, nanoid  }) {
+
+
+  const [count, setCount] = useState(1);
+  const [selectedOption, setSelectedOption] = useState();
+  const [selectedCharacterOptions, setSelectedCharacterOption] = useState();
+ // const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
+  const { session } = useAuth();
+
+  const queryClient = useQueryClient();
+  // const [options, setOptions] = useState([]);
+
+  console.log('nanoid');
+
+  const incrementCount = () => {
+    if (count < 3) {
+      setCount(count + 1);
+    }
+  };
+
+  const decrementCount = () => {
+    if (count > 1) {
+      setCount(count - 1);
+    }
+  };
+
+  const handleSearch = (searchValue: any) => {
+    // Implement search functionality here
+  };
+
+  const places = useSupabaseQuery(["places"], async (token: string | null) => {
+    const { data } = await supabaseClient(token as string)
+      .from("place")
+      .select("*")
+      .eq("project_id", nanoid);
+    return data;
+  });
+
+  const characters = useSupabaseQuery(
+    ["characters", selectedOption?.value],
+    async (token: string | null) => {
+      console.log("selectedOption", selectedOption);
+
+      const { data } = await supabaseClient(token as string)
+        .from("character")
+        .select("*")
+        .eq("place_id", selectedOption?.value);
+
+      console.log("data", data);
+
+      return data;
+    }
+  );
+
+  let {
+    data: project,
+    isLoading: projectLoading,
+    mutate,
+  } = useSupabaseMutation(
+    ["project", nanoid],
+    async (token: string | null) => {
+      const { data } = await supabaseClient(token as string)
+        .from("project")
+        .select("*")
+        .eq("nano_id", nanoid)
+        .single();
+
+      let body = {
+        projectId: nanoid,
+        num: count,
+        placeIds: [selectedOption.value],
+      };
+
+      if (selectedCharacterOptions?.value) {
+        body = Object.assign(body, {
+          characterIds: [selectedCharacterOptions.value],
+        });
+      }
+      const response = await fetch("/api/character", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+
+      const json = await response.json();
+
+      return json;
+    },
+    {
+      onSuccess: () => {
+        startTransition(() => {
+          // Refresh the current route and fetch new data from the server without
+          // losing client-side browser or React state.
+          router.refresh();
+          setOpen(false);
+        });
+      },
+      onError: (e: any) => {
+        console.log("error", e);
+      },
+    }
+  );
+
+
+  const options = places.data?.map((place) => {
+    return {
+      value: place.nano_id,
+      label: place.name,
+      description: place.description,
+    };
+  });
+
+  const characterOptions = characters.data?.map((character) => {
+    return {
+      value: character.nano_id,
+      label: character.name,
+      description: character.description,
+    };
+  });
+
+  // above from character selector code
+
+  const [navigateToNewComponent, setNavigateToNewComponent] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const router = useRouter();
+
+
+  //what happens when button is clicked + calling API
+
+  const handleClick = async () => {
+    console.log('error check')
+    try {
+      const response = await axios.post('https://cloud.leonardo.ai/api/rest/v1/generations', {
+        face_description: face_description,
+      });
+
+      const inference_id = response.data.sdGenerationJob.generationId;
+
+      await mutate({
+        inference_id,
+        imageDescription,
+      });
+
+      router.push('/character');
+
+    } catch (err) {
+      console.error('An error occurred:', err);
+      setErrorMessage('An error occurred while generating the character. Please try again.');
+
+    }
+  }
+
+
+
+
+
+
+  const button = (
+    <Button disabled={projectLoading} onClick={mutate}>
+      {projectLoading && (
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      )}
+      Generate Character
+    </Button>
+  );
+
+
+  //return entities?.length > 0 ? <Link href={nextRoute}>{button}</Link> : button;
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button  className="relative mx-1" variant="outline">
+          <SparklesIcon className="lg:mr-2 h-4 w-4" />
+          <span className="hidden lg:inline">Generate Character</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Generate Character</DialogTitle>
+          <DialogDescription>
+            Generate characters based on the world state and nation /
+            settlement.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="counter">Number of characters</Label>
+            <div className="flex items-center my-5">
+              <Button variant="ghost" onClick={decrementCount}>
+                <MinusCircle />
+              </Button>
+              <span id="counter" className="mx-3 text-lg">
+                {count}
+              </span>
+              <Button variant="ghost" onClick={incrementCount}>
+                <PlusCircle />
+              </Button>
+            </div>
+            <Label htmlFor="search" className="my-5">
+              Place associated with characters you're generating
+            </Label>
+            <Select
+              options={options}
+              value={selectedOption}
+              onChange={(o) => {
+                setSelectedOption(o);
+                queryClient.invalidateQueries("characters");
+              }}
+            />
+            <Label htmlFor="search" className="my-5">
+              Character associated with characters you're generating
+            </Label>
+            {!characters.isLoading && (
+              <Select
+                options={characterOptions}
+                value={selectedCharacterOptions}
+                onChange={(o) => {
+                  setSelectedCharacterOption(o);
+                }}
+              />
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button disabled={projectLoading} onClick={mutate}>
+            {projectLoading && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            Generate character
+
+
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+export default GenerateCharacterButton;
