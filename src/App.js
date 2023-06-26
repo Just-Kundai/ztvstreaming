@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import Header from './Header';
 import MovieList from './MovieList';
 
 const App = () => {
@@ -21,6 +22,7 @@ const App = () => {
   return (
     <div>
       <h1>TV Streaming Website</h1>
+      <Header />
       <MovieList movies={movies} />
     </div>
   );
