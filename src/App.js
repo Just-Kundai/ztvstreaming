@@ -3,6 +3,15 @@ import Header from './Header';
 import MovieList from './MovieList';
 
 const App = () => {
+
+  const handleSearch = searchTerm => {
+  // Perform search logic based on the searchTerm
+  const filteredMovies = movies.filter(movie => {
+    const movieTitle = movie.title.toLowerCase();
+    const searchQuery = searchTerm.toLowerCase();
+    return movieTitle.includes(searchQuery);
+  });
+
   const [movies, setMovies] = useState([]);
 
   useEffect(() => {
@@ -22,6 +31,7 @@ const App = () => {
   return (
     <div>
       <h1>TV Streaming Website</h1>
+      <SearchBar onSearch={handleSearch} />
       <Header />
       <MovieList movies={movies} />
     </div>
