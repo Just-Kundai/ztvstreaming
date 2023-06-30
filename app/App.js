@@ -30,7 +30,7 @@ const App = () => {
 
   return (
     <div>
-      <h1>TV Streaming Website</h1>
+      <h1>TV Streaming Website cslled z-streaming</h1>
       <SearchBar onSearch={handleSearch} />
       <Header />
       <MovieList movies={movies} />
